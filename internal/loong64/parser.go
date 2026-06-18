@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -63,7 +64,7 @@ var (
 		"$t6":   "R18",
 		"$t7":   "R19",
 		"$t8":   "R20",
-		"$fp":   "R22",
+		"$fp":   "R21",
 		"$s0":   "R23",
 		"$s1":   "R24",
 		"$s2":   "R25",
@@ -73,7 +74,7 @@ var (
 		"$s6":   "R29",
 		"$s7":   "R30",
 		"$s8":   "R31",
-		"$s9":   "R22",
+		"$s9":   "R21",
 	}
 	opAlias = map[string]string{
 		"b":    "JMP",
@@ -105,28 +106,8 @@ func generateLine(line internal.Line) string {
 		}
 	} else if pcLoLine.MatchString(line.Assembly) {
 		// The preceding PCALAU12I is rewritten to load the full Go symbol address.
-	} else if strings.HasPrefix(line.Assembly, "b") && !strings.HasPrefix(line.Assembly, "bstrins") && !strings.HasPrefix(line.Assembly, "bstrpick") {
-		splits := strings.Split(line.Assembly, ".")
-		op := strings.TrimSpace(splits[0])
-		registers := strings.FieldsFunc(op, func(r rune) bool {
-			return unicode.IsSpace(r) || r == ','
-		})
-		if o, ok := opAlias[registers[0]]; !ok {
-			builder.WriteString(strings.ToUpper(registers[0]))
-		} else {
-			builder.WriteString(o)
-		}
-		builder.WriteRune(' ')
-		for i := 1; i < len(registers); i++ {
-			if r, ok := registersAlias[registers[i]]; !ok {
-				_, _ = fmt.Fprintln(os.Stderr, "unexpected register alias:", registers[i])
-				os.Exit(1)
-			} else {
-				builder.WriteString(r)
-				builder.WriteRune(',')
-			}
-		}
-		builder.WriteString(splits[1])
+	} else if branch, ok := translateBranch(line.Assembly); ok {
+		builder.WriteString(branch)
 	} else {
 		builder.WriteString("\t")
 		builder.WriteString(fmt.Sprintf("WORD $0x%v", line.Binary))
@@ -135,6 +116,89 @@ func generateLine(line internal.Line) string {
 	}
 	builder.WriteString("\n")
 	return builder.String()
+}
+
+func translateBranch(asm string) (string, bool) {
+	fields := strings.Fields(strings.TrimSpace(asm))
+	if len(fields) == 0 || !strings.HasPrefix(fields[0], "b") {
+		return "", false
+	}
+	mnemonic := fields[0]
+	rest := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(asm), mnemonic))
+	operands := strings.Split(rest, ",")
+	for i := range operands {
+		operands[i] = strings.TrimSpace(operands[i])
+	}
+	register := func(alias string) string {
+		if r, ok := registersAlias[alias]; ok {
+			return r
+		}
+		_, _ = fmt.Fprintln(os.Stderr, "unexpected register alias:", alias)
+		os.Exit(1)
+		return ""
+	}
+	label := func(s string) string {
+		return strings.TrimPrefix(strings.TrimSpace(s), ".")
+	}
+
+	switch mnemonic {
+	case "b":
+		if len(operands) != 1 {
+			return "", false
+		}
+		return fmt.Sprintf("JMP %s", label(operands[0])), true
+	case "beqz":
+		if len(operands) != 2 {
+			return "", false
+		}
+		return fmt.Sprintf("BEQ %s, R0, %s", register(operands[0]), label(operands[1])), true
+	case "bnez":
+		if len(operands) != 2 {
+			return "", false
+		}
+		return fmt.Sprintf("BNE %s, R0, %s", register(operands[0]), label(operands[1])), true
+	case "beq", "bne", "blt", "bge", "bltu", "bgeu":
+		if len(operands) != 3 {
+			return "", false
+		}
+		return fmt.Sprintf("%s %s, %s, %s", strings.ToUpper(mnemonic), register(operands[0]), register(operands[1]), label(operands[2])), true
+	default:
+		return "", false
+	}
+}
+
+func rewriteReservedRegister(binaryText, asm string) (string, error) {
+	if !strings.Contains(asm, "$fp") && !strings.Contains(asm, "$s9") {
+		return binaryText, nil
+	}
+	instruction, err := strconv.ParseUint(binaryText, 16, 32)
+	if err != nil {
+		return "", err
+	}
+	for _, shift := range []uint{0, 5, 10} {
+		if (instruction>>shift)&0x1f == 22 {
+			instruction = (instruction & ^(uint64(0x1f) << shift)) | (uint64(21) << shift)
+		}
+	}
+	return fmt.Sprintf("%08x", instruction), nil
+}
+
+func argumentSize(function internal.Function, returnSize int) int {
+	offset := 0
+	for _, param := range function.Parameters {
+		sz := 8
+		if !param.Pointer {
+			sz = internal.SupportedTypes[param.Type]
+		}
+		if offset%sz != 0 {
+			offset += sz - offset%sz
+		}
+		offset += sz
+	}
+	if offset%8 != 0 {
+		offset += 8 - offset%8
+	}
+	return offset + returnSize
 }
 
 func parseAssembly(path string) (map[string][]internal.Line, map[string]int, error) {
@@ -247,6 +311,11 @@ func parseObjectDump(dump string, functions map[string][]internal.Line) error {
 			if lineNumber >= len(functions[functionName]) {
 				return fmt.Errorf("%d: unexpected objectdump line: %s", i, line)
 			}
+			rewritten, err := rewriteReservedRegister(binary, assembly)
+			if err != nil {
+				return err
+			}
+			binary = rewritten
 			functions[functionName][lineNumber].Binary = binary
 			lineNumber++
 		}
@@ -266,7 +335,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 			returnSize += 8
 		}
 		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
-			function.Name, returnSize, len(function.Parameters)*8))
+			function.Name, returnSize, argumentSize(function, returnSize)))
 		registerCount, fpRegisterCount, offset := 0, 0, 0
 		var stack []lo.Tuple2[int, internal.Parameter]
 		for _, param := range function.Parameters {
@@ -292,7 +361,11 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerCount < len(registers) {
-					builder.WriteString(fmt.Sprintf("\tMOVV %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+					if param.Type == "_Bool" {
+						builder.WriteString(fmt.Sprintf("\tMOVBU %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+					} else {
+						builder.WriteString(fmt.Sprintf("\tMOVV %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+					}
 					registerCount++
 				} else {
 					stack = append(stack, lo.Tuple2[int, internal.Parameter]{A: offset, B: param})
