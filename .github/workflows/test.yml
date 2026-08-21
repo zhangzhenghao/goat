@@ -11,8 +11,13 @@ jobs:
     name: ubuntu-latest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install clang
         uses: ConorMacBride/install-package@v1
         with:
@@ -28,8 +33,13 @@ jobs:
     name: ubuntu-24.04-arm
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install clang
         uses: ConorMacBride/install-package@v1
         with:
@@ -45,10 +55,13 @@ jobs:
     name: macos-latest
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version: stable
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install clang and binutils
         run: brew install llvm binutils
       - name: Install GOAT
@@ -64,8 +77,13 @@ jobs:
     name: windows-latest
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install LLVM and MinGW-w64
         uses: ConorMacBride/install-package@v1
         with:
@@ -81,8 +99,13 @@ jobs:
     name: qemu-riscv64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install dependencies
         uses: ConorMacBride/install-package@v1
         with:
@@ -108,8 +131,13 @@ jobs:
     name: qemu-loong64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install dependencies
         uses: ConorMacBride/install-package@v1
         with:
@@ -130,8 +158,13 @@ jobs:
     name: qemu-s390x
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install dependencies
         uses: ConorMacBride/install-package@v1
         with:
@@ -152,8 +185,13 @@ jobs:
     name: qemu-ppc64le
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
       - name: Install dependencies
         uses: ConorMacBride/install-package@v1
         with:
