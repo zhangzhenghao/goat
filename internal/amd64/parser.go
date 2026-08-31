@@ -286,8 +286,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 		if function.Type != "void" {
 			returnSize += 8
 		}
-		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
-			function.Name, returnSize, len(function.Parameters)*8))
+		var body strings.Builder
 		registerIndex, xmmRegisterIndex, offset := 0, 0, 0
 		var stack []lo.Tuple2[int, internal.Parameter]
 		for _, param := range function.Parameters {
@@ -303,9 +302,9 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 			if !param.Pointer && (param.Type == "double" || param.Type == "float") {
 				if xmmRegisterIndex < len(xmmRegisters) {
 					if param.Type == "double" {
-						builder.WriteString(fmt.Sprintf("\tMOVSD %s+%d(FP), %s\n", param.Name, offset, xmmRegisters[xmmRegisterIndex]))
+						body.WriteString(fmt.Sprintf("	MOVSD %s+%d(FP), %s\n", param.Name, offset, xmmRegisters[xmmRegisterIndex]))
 					} else {
-						builder.WriteString(fmt.Sprintf("\tMOVSS %s+%d(FP), %s\n", param.Name, offset, xmmRegisters[xmmRegisterIndex]))
+						body.WriteString(fmt.Sprintf("	MOVSS %s+%d(FP), %s\n", param.Name, offset, xmmRegisters[xmmRegisterIndex]))
 					}
 					xmmRegisterIndex++
 				} else {
@@ -313,7 +312,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerIndex < len(registers) {
-					builder.WriteString(fmt.Sprintf("\tMOVQ %s+%d(FP), %s\n", param.Name, offset, registers[registerIndex]))
+					body.WriteString(fmt.Sprintf("	MOVQ %s+%d(FP), %s\n", param.Name, offset, registers[registerIndex]))
 					registerIndex++
 				} else {
 					stack = append(stack, lo.Tuple2[int, internal.Parameter]{A: offset, B: param})
@@ -324,6 +323,9 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 		if offset%8 != 0 {
 			offset += 8 - offset%8
 		}
+		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
+			function.Name, returnSize, offset+internal.SupportedTypes[function.Type]))
+		builder.WriteString(body.String())
 		if len(stack) > 0 {
 			for _, s := range slices.Backward(stack) {
 				builder.WriteString(fmt.Sprintf("\tPUSHQ %s+%d(FP)\n", s.B.Name, s.A))
