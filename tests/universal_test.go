@@ -22,6 +22,13 @@ func TestL2(t *testing.T) {
 	assert.Equal(t, float32(64), c)
 }
 
+func TestSquaredEuclideanDistanceFP32AVX(t *testing.T) {
+	a := []float32{1, 2, 3, 4}
+	b := []float32{5, 6, 7, 8}
+	result := squared_euclidean_distance_fp32_avx(unsafe.Pointer(&a[0]), unsafe.Pointer(&b[0]), int64(len(a)))
+	assert.Equal(t, float32(64), result)
+}
+
 func TestMatMul(t *testing.T) {
 	a := []float32{1, 2, 3, 4}
 	b := []float32{5, 6, 7, 8}
