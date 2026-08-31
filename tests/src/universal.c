@@ -23,7 +23,7 @@ float l2(const float *a, const float *b, long n)
     return sum;
 }
 
-float squared_euclidean_distance_fp32_avx(const float *lhs, const float *rhs, long size)
+float squared_euclidean_distance_fp32(const float *lhs, const float *rhs, long size)
 {
     float result = 0;
     for (long i = 0; i < size; ++i)
