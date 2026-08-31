@@ -23,6 +23,17 @@ float l2(const float *a, const float *b, long n)
     return sum;
 }
 
+float squared_euclidean_distance_fp32(const float *lhs, const float *rhs, long size)
+{
+    float result = 0;
+    for (long i = 0; i < size; ++i)
+    {
+        float d = lhs[i] - rhs[i];
+        result += d * d;
+    }
+    return result;
+}
+
 void mat_mul(float *a, float *b, float *res, long d1, long d2, long d3)
 {
     for (int i = 0; i < d1; i++)

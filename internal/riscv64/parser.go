@@ -263,8 +263,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 		if function.Type != "void" {
 			returnSize += 8
 		}
-		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
-			function.Name, returnSize, len(function.Parameters)*8))
+		var body strings.Builder
 		registerCount, fpRegisterCount, offset := 0, 0, 0
 		var stack []lo.Tuple2[int, internal.Parameter]
 		for _, param := range function.Parameters {
@@ -280,9 +279,9 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 			if !param.Pointer && (param.Type == "double" || param.Type == "float") {
 				if fpRegisterCount < len(fpRegisters) {
 					if param.Type == "double" {
-						builder.WriteString(fmt.Sprintf("\tMOVD %s+%d(FP), %s\n", param.Name, offset, fpRegisters[fpRegisterCount]))
+						body.WriteString(fmt.Sprintf("	MOVD %s+%d(FP), %s\n", param.Name, offset, fpRegisters[fpRegisterCount]))
 					} else {
-						builder.WriteString(fmt.Sprintf("\tMOVF %s+%d(FP), %s\n", param.Name, offset, fpRegisters[fpRegisterCount]))
+						body.WriteString(fmt.Sprintf("	MOVF %s+%d(FP), %s\n", param.Name, offset, fpRegisters[fpRegisterCount]))
 					}
 					fpRegisterCount++
 				} else {
@@ -291,9 +290,9 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 			} else {
 				if registerCount < len(registers) {
 					if param.Type == "_Bool" {
-						builder.WriteString(fmt.Sprintf("\tMOVB %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+						body.WriteString(fmt.Sprintf("	MOVB %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
 					} else {
-						builder.WriteString(fmt.Sprintf("\tMOV %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+						body.WriteString(fmt.Sprintf("	MOV %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
 					}
 					registerCount++
 				} else {
@@ -305,6 +304,9 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 		if offset%8 != 0 {
 			offset += 8 - offset%8
 		}
+		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
+			function.Name, returnSize, offset+internal.SupportedTypes[function.Type]))
+		builder.WriteString(body.String())
 		frameSize := 0
 		if len(stack) > 0 {
 			for i := 0; i < len(stack); i++ {
