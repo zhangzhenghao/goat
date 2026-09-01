@@ -474,7 +474,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerSlot < len(registers) {
-					if param.Type == "_Bool" {
+					if !param.Pointer && param.Type == "_Bool" {
 						body.WriteString(fmt.Sprintf("\tMOVBZ %s+%d(FP), %s\n", param.Name, offset, registers[registerSlot]))
 					} else {
 						body.WriteString(fmt.Sprintf("\tMOVD %s+%d(FP), %s\n", param.Name, offset, registers[registerSlot]))

@@ -289,7 +289,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerCount < len(registers) {
-					if param.Type == "_Bool" {
+					if !param.Pointer && param.Type == "_Bool" {
 						body.WriteString(fmt.Sprintf("	MOVB %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
 					} else {
 						body.WriteString(fmt.Sprintf("	MOV %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
@@ -316,11 +316,14 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 					frameSize += internal.SupportedTypes[stack[i].B.Type]
 				}
 			}
-			builder.WriteString(fmt.Sprintf("\tADDI -%d, SP, SP\n", frameSize))
 			stackoffset := 0
 			for i := 0; i < len(stack); i++ {
-				builder.WriteString(fmt.Sprintf("\tMOV %s+%d(FP), T0\n", stack[i].B.Name, frameSize+stack[i].A))
-				builder.WriteString(fmt.Sprintf("\tMOV T0, %d(SP)\n", stackoffset))
+				if i > 0 {
+					builder.WriteString(fmt.Sprintf("	ADDI %d, SP, SP\n", frameSize))
+				}
+				builder.WriteString(fmt.Sprintf("	MOV %s+%d(FP), T0\n", stack[i].B.Name, stack[i].A))
+				builder.WriteString(fmt.Sprintf("	ADDI -%d, SP, SP\n", frameSize))
+				builder.WriteString(fmt.Sprintf("	MOV T0, %d(SP)\n", stackoffset))
 				if stack[i].B.Pointer {
 					stackoffset += 8
 				} else {

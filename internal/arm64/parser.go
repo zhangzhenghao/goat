@@ -205,10 +205,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 	builder.WriteString(header)
 	builder.WriteString(internal.GenerateDataSymbols(dataSymbols, binary.LittleEndian))
 	for _, function := range functions {
-		returnSize := 0
-		if function.Type != "void" {
-			returnSize += 8
-		}
+		resultSize := internal.SupportedTypes[function.Type]
 		registerCount, fpRegisterCount, offset := 0, 0, 0
 		var stack []lo.Tuple2[int, internal.Parameter]
 		var argsBuilder strings.Builder
@@ -235,7 +232,11 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerCount < len(registers) {
-					argsBuilder.WriteString(fmt.Sprintf("\tMOVD %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+					if !param.Pointer && param.Type == "_Bool" {
+						argsBuilder.WriteString(fmt.Sprintf("	MOVBU %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+					} else {
+						argsBuilder.WriteString(fmt.Sprintf("	MOVD %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
+					}
 					registerCount++
 				} else {
 					stack = append(stack, lo.Tuple2[int, internal.Parameter]{A: offset, B: param})
@@ -262,7 +263,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 			stackOffset += 8 - stackOffset%8
 		}
 		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
-			function.Name, stackOffset, offset+returnSize))
+			function.Name, stackOffset, offset+resultSize))
 		builder.WriteString(argsBuilder.String())
 		for _, line := range function.Lines {
 			for _, label := range line.Labels {
@@ -272,8 +273,10 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 			if line.Assembly == "ret" {
 				if function.Type != "void" {
 					switch function.Type {
-					case "int64_t", "long", "_Bool":
-						builder.WriteString(fmt.Sprintf("\tMOVD R0, result+%d(FP)\n", offset))
+					case "int64_t", "long":
+						builder.WriteString(fmt.Sprintf("	MOVD R0, result+%d(FP)\n", offset))
+					case "_Bool":
+						builder.WriteString(fmt.Sprintf("	MOVB R0, result+%d(FP)\n", offset))
 					case "double":
 						builder.WriteString(fmt.Sprintf("\tFMOVD F0, result+%d(FP)\n", offset))
 					case "float":

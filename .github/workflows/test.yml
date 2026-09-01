@@ -27,6 +27,7 @@ jobs:
       - name: Run tests
         run: |
           goat tests/src/universal.c -o tests
+          go vet -C ./tests ./...
           go test -C ./tests -v
 
   arm:
@@ -49,6 +50,7 @@ jobs:
       - name: Run tests
         run: |
           goat tests/src/universal.c -o tests
+          go vet -C ./tests ./...
           go test -C ./tests -v
 
   macos:
@@ -71,6 +73,7 @@ jobs:
           export PATH=/opt/homebrew/opt/llvm/bin:$PATH
           export PATH=/opt/homebrew/opt/binutils/bin:$PATH
           goat tests/src/universal.c -o tests
+          go vet -C ./tests ./...
           go test -C ./tests -v
 
   windows:
@@ -93,6 +96,7 @@ jobs:
       - name: Run tests
         run: |
           goat tests/src/universal.c -o tests
+          go vet -C ./tests ./...
           go test -C ./tests -v
 
   riscv:
@@ -123,6 +127,7 @@ jobs:
         env:
           QEMU_LD_PREFIX: /usr/riscv64-linux-gnu
         run: |
+          GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go vet -C ./tests ./...
           cd tests
           GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o tests.test
           qemu-riscv64-static ./tests.test -test.v
@@ -150,6 +155,7 @@ jobs:
         env:
           QEMU_LD_PREFIX: /usr/loongarch64-linux-gnu
         run: |
+          GOOS=linux GOARCH=loong64 CGO_ENABLED=0 go vet -C ./tests ./...
           cd tests
           GOOS=linux GOARCH=loong64 CGO_ENABLED=0 go test -c -o tests.test
           qemu-loongarch64-static ./tests.test -test.v
@@ -177,6 +183,7 @@ jobs:
         env:
           QEMU_LD_PREFIX: /usr/s390x-linux-gnu
         run: |
+          GOOS=linux GOARCH=s390x CGO_ENABLED=0 go vet -C ./tests ./...
           cd tests
           GOOS=linux GOARCH=s390x CGO_ENABLED=0 go test -c -o tests.test
           qemu-s390x-static ./tests.test -test.v
@@ -204,6 +211,7 @@ jobs:
         env:
           QEMU_LD_PREFIX: /usr/powerpc64le-linux-gnu
         run: |
+          GOOS=linux GOARCH=ppc64le CGO_ENABLED=0 go vet -C ./tests ./...
           cd tests
           GOOS=linux GOARCH=ppc64le CGO_ENABLED=0 go test -c -o tests.test
           qemu-ppc64le-static ./tests.test -test.v

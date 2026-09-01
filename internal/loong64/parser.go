@@ -334,8 +334,9 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 		if function.Type != "void" {
 			returnSize += 8
 		}
+		resultSize := internal.SupportedTypes[function.Type]
 		builder.WriteString(fmt.Sprintf("\nTEXT ·%v(SB), $%d-%d\n",
-			function.Name, returnSize, argumentSize(function, returnSize)))
+			function.Name, returnSize, argumentSize(function, resultSize)))
 		registerCount, fpRegisterCount, offset := 0, 0, 0
 		var stack []lo.Tuple2[int, internal.Parameter]
 		for _, param := range function.Parameters {
@@ -361,7 +362,7 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerCount < len(registers) {
-					if param.Type == "_Bool" {
+					if !param.Pointer && param.Type == "_Bool" {
 						builder.WriteString(fmt.Sprintf("\tMOVBU %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
 					} else {
 						builder.WriteString(fmt.Sprintf("\tMOVV %s+%d(FP), %s\n", param.Name, offset, registers[registerCount]))
@@ -385,11 +386,14 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 					frameSize += internal.SupportedTypes[stack[i].B.Type]
 				}
 			}
-			builder.WriteString(fmt.Sprintf("\tADDV $-%d, R3\n", frameSize))
 			stackoffset := 0
 			for i := 0; i < len(stack); i++ {
-				builder.WriteString(fmt.Sprintf("\tMOVV %s+%d(FP), R12\n", stack[i].B.Name, frameSize+stack[i].A))
-				builder.WriteString(fmt.Sprintf("\tMOVV R12, (%d)(R3)\n", stackoffset))
+				if i > 0 {
+					builder.WriteString(fmt.Sprintf("	ADDV $%d, R3\n", frameSize))
+				}
+				builder.WriteString(fmt.Sprintf("	MOVV %s+%d(FP), R12\n", stack[i].B.Name, stack[i].A))
+				builder.WriteString(fmt.Sprintf("	ADDV $-%d, R3\n", frameSize))
+				builder.WriteString(fmt.Sprintf("	MOVV R12, (%d)(R3)\n", stackoffset))
 				if stack[i].B.Pointer {
 					stackoffset += 8
 				} else {
@@ -408,8 +412,10 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 				if function.Type != "void" {
 					switch function.Type {
-					case "int64_t", "long", "_Bool":
-						builder.WriteString(fmt.Sprintf("\tMOVV R4, result+%d(FP)\n", offset))
+					case "int64_t", "long":
+						builder.WriteString(fmt.Sprintf("	MOVV R4, result+%d(FP)\n", offset))
+					case "_Bool":
+						builder.WriteString(fmt.Sprintf("	MOVB R4, result+%d(FP)\n", offset))
 					case "double":
 						builder.WriteString(fmt.Sprintf("\tMOVD F0, result+%d(FP)\n", offset))
 					case "float":
