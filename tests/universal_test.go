@@ -45,6 +45,11 @@ func TestNot(t *testing.T) {
 	assert.False(t, _not(true))
 }
 
+func TestLoadBool(t *testing.T) {
+	value := true
+	assert.True(t, load_bool(unsafe.Pointer(&value)))
+}
+
 func TestSum(t *testing.T) {
 	assert.Equal(t, int64(55), sum(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))
 }

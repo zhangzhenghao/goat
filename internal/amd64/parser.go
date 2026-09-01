@@ -312,7 +312,11 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 			} else {
 				if registerIndex < len(registers) {
-					body.WriteString(fmt.Sprintf("	MOVQ %s+%d(FP), %s\n", param.Name, offset, registers[registerIndex]))
+					if !param.Pointer && param.Type == "_Bool" {
+						body.WriteString(fmt.Sprintf("	MOVB %s+%d(FP), %s\n", param.Name, offset, registers[registerIndex]))
+					} else {
+						body.WriteString(fmt.Sprintf("	MOVQ %s+%d(FP), %s\n", param.Name, offset, registers[registerIndex]))
+					}
 					registerIndex++
 				} else {
 					stack = append(stack, lo.Tuple2[int, internal.Parameter]{A: offset, B: param})
@@ -345,8 +349,10 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 				if function.Type != "void" {
 					switch function.Type {
-					case "int64_t", "long", "_Bool":
-						builder.WriteString(fmt.Sprintf("\tMOVQ AX, result+%d(FP)\n", offset))
+					case "int64_t", "long":
+						builder.WriteString(fmt.Sprintf("	MOVQ AX, result+%d(FP)\n", offset))
+					case "_Bool":
+						builder.WriteString(fmt.Sprintf("	MOVB AX, result+%d(FP)\n", offset))
 					case "double":
 						builder.WriteString(fmt.Sprintf("\tMOVSD X0, result+%d(FP)\n", offset))
 					case "float":
