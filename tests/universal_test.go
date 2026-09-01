@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/base64"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -30,6 +31,9 @@ func TestSquaredEuclideanDistanceFP32(t *testing.T) {
 }
 
 func TestIndirectJump(t *testing.T) {
+	if runtime.GOARCH == "s390x" {
+		t.Skip("GoAT's s390x backend does not support Clang conditional returns")
+	}
 	lhs := []float32{1, 2, 3, 4, 5, 6, 7}
 	rhs := []float32{2, 3, 4, 5, 6, 7, 8}
 	for _, test := range []struct {
