@@ -95,14 +95,15 @@ func init() {
 	})
 }
 
-func generateLine(line internal.Line) string {
+func generateLine(line internal.Line) (string, error) {
 	var builder strings.Builder
 	builder.WriteString("\t")
 	if strings.HasPrefix(line.Assembly, "j") {
-		splits := strings.Split(line.Assembly, ".")
-		op := strings.TrimSpace(splits[0])
-		operand := splits[1]
-		builder.WriteString(fmt.Sprintf("%s %s", strings.ToUpper(op), operand))
+		fields := strings.Fields(line.Assembly)
+		if len(fields) != 2 || !strings.HasPrefix(fields[1], ".") {
+			return "", fmt.Errorf("unsupported indirect jump: %s", strings.Join(fields, " "))
+		}
+		builder.WriteString(fmt.Sprintf("%s %s", strings.ToUpper(fields[0]), strings.TrimPrefix(fields[1], ".")))
 	} else if matches := leaqRIPLine.FindStringSubmatch(line.Assembly); matches != nil {
 		builder.WriteString(fmt.Sprintf("LEAQ %s<>(SB), %s", matches[1], amd64Register(matches[2])))
 	} else {
@@ -132,7 +133,7 @@ func generateLine(line internal.Line) string {
 		builder.WriteString(line.Assembly)
 	}
 	builder.WriteString("\n")
-	return builder.String()
+	return builder.String(), nil
 }
 
 func parseAssembly(path string) (map[string][]internal.Line, map[string]int, error) {
@@ -363,7 +364,11 @@ func generateGoAssembly(buildTags string, header string, goAssemblyPath string, 
 				}
 				builder.WriteString("\tRET\n")
 			} else {
-				builder.WriteString(generateLine(line))
+				generated, err := generateLine(line)
+				if err != nil {
+					return err
+				}
+				builder.WriteString(generated)
 			}
 		}
 	}

@@ -147,6 +147,7 @@ func (t *TranslateUnit) GenerateGoStubs(functions []Function) error {
 }
 
 func (t *TranslateUnit) compile(args ...string) error {
+	args = append(args, "-fno-jump-tables")
 	if t.Target.GOARCH == "ppc64le" {
 		args = append(args, "-finline-limit=1000",
 			"-fno-asynchronous-unwind-tables", "-fno-exceptions", "-fno-builtin",
