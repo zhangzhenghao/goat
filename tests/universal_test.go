@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/base64"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -27,6 +28,31 @@ func TestSquaredEuclideanDistanceFP32(t *testing.T) {
 	b := []float32{5, 6, 7, 8}
 	result := squared_euclidean_distance_fp32(unsafe.Pointer(&a[0]), unsafe.Pointer(&b[0]), int64(len(a)))
 	assert.Equal(t, float32(64), result)
+}
+
+func TestIndirectJump(t *testing.T) {
+	if runtime.GOARCH == "s390x" {
+		t.Skip("GoAT's s390x backend does not support Clang conditional returns")
+	}
+	lhs := []float32{1, 2, 3, 4, 5, 6, 7}
+	rhs := []float32{2, 3, 4, 5, 6, 7, 8}
+	for _, test := range []struct {
+		size     int64
+		expected float32
+	}{
+		{size: 0, expected: 0},
+		{size: 1, expected: 2},
+		{size: 2, expected: 8},
+		{size: 3, expected: 20},
+		{size: 4, expected: 40},
+		{size: 5, expected: 70},
+		{size: 6, expected: 112},
+		{size: 7, expected: 168},
+		{size: 8, expected: 0},
+	} {
+		result := indirect_jump(unsafe.Pointer(&lhs[0]), unsafe.Pointer(&rhs[0]), test.size)
+		assert.Equal(t, test.expected, result, "size %d", test.size)
+	}
 }
 
 func TestMatMul(t *testing.T) {
