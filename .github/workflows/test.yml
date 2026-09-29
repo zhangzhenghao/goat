@@ -91,13 +91,43 @@ jobs:
             go.sum
             tests/go.sum
       - name: Install LLVM and MinGW-w64
-        uses: ConorMacBride/install-package@v1
+        uses: MinoruSekine/setup-scoop@v5
         with:
-          choco: llvm mingw
+          apps: llvm mingw
       - name: Install GOAT
         run: go install .
       - name: Run tests
         run: |
+          goat tests/src/universal.c -o tests
+          goat tests/src/o3.c -o tests -O3
+          go vet -C ./tests ./...
+          go test -C ./tests -v
+
+  windows-arm:
+    name: windows-11-arm
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tests/go.sum
+      - name: Install GOAT
+        run: go install .
+      - name: Install LLVM
+        uses: MinoruSekine/setup-scoop@v5
+        with:
+          buckets: extras
+          apps: llvm-arm64
+      - name: Install GNU objdump
+        run: |
+          scoop config use_external_7zip true
+          scoop install gcc-aarch64-none-linux-gnu
+      - name: Run tests
+        run: |
+          $env:OBJDUMP = Join-Path $env:USERPROFILE 'scoop\apps\gcc-aarch64-none-linux-gnu\current\bin\aarch64-none-linux-gnu-objdump.exe'
           goat tests/src/universal.c -o tests
           goat tests/src/o3.c -o tests -O3
           go vet -C ./tests ./...
